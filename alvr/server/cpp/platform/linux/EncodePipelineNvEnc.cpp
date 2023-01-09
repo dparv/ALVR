@@ -49,9 +49,6 @@ alvr::EncodePipelineNvEnc::EncodePipelineNvEnc(VkFrame &input_frame,
 
     switch (codec_id) {
     case ALVR_CODEC_H264:
-        AVUTIL.av_opt_set(encoder_ctx, "preset", "llhq", 0);
-        AVUTIL.av_opt_set(encoder_ctx, "zerolatency", "1", 0);
-
         switch (settings.m_entropyCoding) {
         case ALVR_CABAC:
             AVUTIL.av_opt_set(encoder_ctx->priv_data, "coder", "ac", 0);
@@ -60,13 +57,46 @@ alvr::EncodePipelineNvEnc::EncodePipelineNvEnc(VkFrame &input_frame,
             AVUTIL.av_opt_set(encoder_ctx->priv_data, "coder", "vlc", 0);
             break;
         }
-
         break;
     case ALVR_CODEC_H265:
-        AVUTIL.av_opt_set(encoder_ctx, "preset", "llhq", 0);
-        AVUTIL.av_opt_set(encoder_ctx, "zerolatency", "1", 0);
         break;
     }
+
+    switch (settings.m_rateControlMode) {
+    case ALVR_CBR:
+        AVUTIL.av_opt_set(encoder_ctx->priv_data, "rc", "cbr", 0);
+        break;
+    case ALVR_VBR:
+        AVUTIL.av_opt_set(encoder_ctx->priv_data, "rc", "vbr", 0);
+        break;
+    }
+
+    switch (settings.m_encoderQualityPreset) {
+    case ALVR_QUALITY:
+        AVUTIL.av_opt_set(encoder_ctx->priv_data, "preset", "p7", 0);
+        break;
+    case ALVR_BALANCED:
+        AVUTIL.av_opt_set(encoder_ctx->priv_data, "preset", "p4", 0);
+        break;
+    case ALVR_SPEED:
+    default:
+        AVUTIL.av_opt_set(encoder_ctx->priv_data, "preset", "p1", 0);
+        break;
+    }
+
+    if (settings.m_nvencAdaptiveQuantizationMode == 1) {
+        AVUTIL.av_opt_set_int(encoder_ctx->priv_data, "spatial_aq", 1, 0);
+    } else if (settings.m_nvencAdaptiveQuantizationMode == 2) {
+        AVUTIL.av_opt_set_int(encoder_ctx->priv_data, "temporal_aq", 1, 0);
+    }
+
+    if (settings.m_nvencEnableWeightedPrediction) {
+        AVUTIL.av_opt_set_int(encoder_ctx->priv_data, "weighted_pred", 1, 0);
+    }
+
+    AVUTIL.av_opt_set_int(encoder_ctx->priv_data, "tune", settings.m_nvencTuningPreset, 0);
+    AVUTIL.av_opt_set_int(encoder_ctx->priv_data, "zerolatency", 1, 0);
+    AVUTIL.av_opt_set_int(encoder_ctx->priv_data, "delay", 0, 0);
 
     /**
      * We will recieve a frame from HW as AV_PIX_FMT_VULKAN which will converted to AV_PIX_FMT_BGRA
